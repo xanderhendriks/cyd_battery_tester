@@ -1,0 +1,3 @@
+[submodule "esp32/components/esp32-smbus"]
+	path = esp32/components/esp32-smbus
+	url = git@github.com:xanderhendriks/esp32-smbus.git
