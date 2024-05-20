@@ -18,7 +18,7 @@
 #include "smbus.h"
 #include "lcd.h"
 #include "touch.h"
-
+#include "nvs_flash.h"
 
 // #include "esp_nimble_hci.h"
 #include "nimble/nimble_port.h"
@@ -38,14 +38,58 @@
 
 static const char *TAG="demo";
 static lv_obj_t *lbl_state_of_charge;
+static uint16_t gatt_state_of_charge;
 static lv_obj_t *lbl_voltage;
+static uint16_t gatt_voltage;
 static lv_obj_t *lbl_current;
+static uint16_t gatt_current;
 static lv_obj_t *lbl_status;
 static lv_obj_t *lbl_version;
+static uint16_t gatt_version;
+
+static const ble_uuid128_t gatt_svr_svc_battery_uuid =
+        BLE_UUID128_INIT(0x40, 0xb3, 0x20, 0x90, 0x72, 0xb5, 0x80, 0xaf,
+                         0xa7, 0x4f, 0x15, 0x1c, 0xaf, 0xd2, 0x61, 0xe7);
+
+#define STATE_OF_CHARGE_TYPE 0x8001
+#define STATE_OF_CHARGE_VALUE 0x8002
+#define STATE_OF_CHARGE_STRING "State of charge (%)"
+
+#define VOLTAGE_TYPE 0x8003
+#define VOLTAGE_VALUE 0x8004
+#define VOLTAGE_STRING "Voltage (V)"
+
+#define CURRENT_TYPE 0x8005
+#define CURRENT_VALUE 0x8006
+#define CURRENT_STRING "Current (mA)"
+
+#define VERSION_TYPE 0x8009
+#define VERSION_VALUE 0x800A
+#define VERSION_STRING "Version"
 
 
 uint8_t ble_addr_type;
 void ble_app_advertise(void);
+
+static int
+gatt_svr_chr_write(struct os_mbuf *om, uint16_t min_len, uint16_t max_len,
+                   void *dst, uint16_t *len)
+{
+    uint16_t om_len;
+    int rc;
+
+    om_len = OS_MBUF_PKTLEN(om);
+    if (om_len < min_len || om_len > max_len) {
+        return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+    }
+
+    rc = ble_hs_mbuf_to_flat(om, dst, max_len, len);
+    if (rc != 0) {
+        return BLE_ATT_ERR_UNLIKELY;
+    }
+
+    return 0;
+}
 
 // Write data to ESP32 defined as server
 static int device_write(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
@@ -85,19 +129,128 @@ static int device_read(uint16_t con_handle, uint16_t attr_handle, struct ble_gat
     return 0;
 }
 
+static int
+gatt_svr_bat_access(uint16_t conn_handle, uint16_t attr_handle,
+                          struct ble_gatt_access_ctxt *ctxt,
+                          void *arg)
+{
+    uint16_t uuid16;
+    int rc;
+
+    uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+
+    switch (uuid16) {
+    case STATE_OF_CHARGE_TYPE:
+        assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+        rc = os_mbuf_append(ctxt->om, STATE_OF_CHARGE_STRING, strlen(STATE_OF_CHARGE_STRING));
+        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+
+    case STATE_OF_CHARGE_VALUE:
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            rc = os_mbuf_append(ctxt->om, &gatt_state_of_charge,
+                                sizeof(gatt_state_of_charge));
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+
+    case VOLTAGE_TYPE:
+        assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+        rc = os_mbuf_append(ctxt->om, VOLTAGE_STRING, strlen(VOLTAGE_STRING));
+        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+
+    case VOLTAGE_VALUE:
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            rc = os_mbuf_append(ctxt->om, &gatt_voltage,
+                                sizeof(gatt_voltage));
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+
+    case CURRENT_TYPE:
+        assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+        rc = os_mbuf_append(ctxt->om, CURRENT_STRING, strlen(CURRENT_STRING));
+        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+
+    case CURRENT_VALUE:
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            rc = os_mbuf_append(ctxt->om, &gatt_current,
+                                sizeof(gatt_current));
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+
+    case VERSION_TYPE:
+        assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+        rc = os_mbuf_append(ctxt->om, VERSION_STRING, strlen(VERSION_STRING));
+        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+
+    case VERSION_VALUE:
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            rc = os_mbuf_append(ctxt->om, &gatt_version,
+                                sizeof(gatt_version));
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+
+    default:
+        assert(0);
+        return BLE_ATT_ERR_UNLIKELY;
+    }
+}
 // Array of pointers to other service definitions
 // UUID - Universal Unique Identifier
 static const struct ble_gatt_svc_def gatt_svcs[] = {
-    {.type = BLE_GATT_SVC_TYPE_PRIMARY,
-     .uuid = BLE_UUID16_DECLARE(0x180),                 // Define UUID for device type
-     .characteristics = (struct ble_gatt_chr_def[]){
-         {.uuid = BLE_UUID16_DECLARE(0xFEF4),           // Define UUID for reading
-          .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
-          .access_cb = device_read},
-         {.uuid = BLE_UUID16_DECLARE(0xDEAD),           // Define UUID for writing
-          .flags = BLE_GATT_CHR_F_WRITE,
-          .access_cb = device_write},
-         {0}}},
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = BLE_UUID16_DECLARE(0x180),                 // Define UUID for device type
+        .characteristics = (struct ble_gatt_chr_def[]) {{
+            .uuid = BLE_UUID16_DECLARE(0xFEF4),           // Define UUID for reading
+            .flags = BLE_GATT_CHR_F_READ,
+            .access_cb = device_read
+        }, {
+            .uuid = BLE_UUID16_DECLARE(0xDEAD),           // Define UUID for writing
+            .flags = BLE_GATT_CHR_F_WRITE,
+            .access_cb = device_write
+        }, {
+            0
+        }},
+    },
+    {
+        /*** ADC Level Notification Service. */
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &gatt_svr_svc_battery_uuid.u,
+        .characteristics = (struct ble_gatt_chr_def[]) {{
+            .uuid = BLE_UUID16_DECLARE(STATE_OF_CHARGE_TYPE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            .uuid = BLE_UUID16_DECLARE(STATE_OF_CHARGE_VALUE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_NOTIFY,
+        }, {
+            .uuid = BLE_UUID16_DECLARE(VOLTAGE_TYPE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            .uuid = BLE_UUID16_DECLARE(VOLTAGE_VALUE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_NOTIFY,
+        }, {
+            .uuid = BLE_UUID16_DECLARE(CURRENT_TYPE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            .uuid = BLE_UUID16_DECLARE(CURRENT_VALUE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_NOTIFY,
+        },{
+            .uuid = BLE_UUID16_DECLARE(VERSION_TYPE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            .uuid = BLE_UUID16_DECLARE(VERSION_VALUE),
+            .access_cb = gatt_svr_bat_access,
+            .flags = BLE_GATT_CHR_F_NOTIFY,
+        }, {
+            0, /* No more characteristics in this service. */
+        }},
+    },
     {0}};
 
 // BLE event handling
@@ -350,17 +503,17 @@ void app_main(void)
     smbus_info_t smbus_info;
     smbus_init(&smbus_info, I2C_MASTER_NUM, I2C_BMS_ADDRESS);
 
+    nvs_flash_init();
+    nimble_port_init();                                 // Initialize the host stack
+    ble_svc_gap_device_name_set("cyd_battery_tester");  // Initialize NimBLE configuration - server name
+    ble_svc_gap_init();                                 // Initialize NimBLE configuration - gap service
+    ble_svc_gatt_init();                                // Initialize NimBLE configuration - gatt service
+    ble_gatts_count_cfg(gatt_svcs);                     // Initialize NimBLE configuration - config gatt services
+    ble_gatts_add_svcs(gatt_svcs);                      // Initialize NimBLE configuration - queues gatt services.
+    ble_hs_cfg.sync_cb = ble_app_on_sync;               // Initialize application
+    nimble_port_freertos_init(host_task);               // Run the thread
 
-    // nvs_flash_init();                          // 1 - Initialize NVS flash using
-    // esp_nimble_hci_and_controller_init();      // 2 - Initialize ESP controller
-    nimble_port_init();                        // 3 - Initialize the host stack
-    ble_svc_gap_device_name_set("BLE-Server"); // 4 - Initialize NimBLE configuration - server name
-    ble_svc_gap_init();                        // 4 - Initialize NimBLE configuration - gap service
-    ble_svc_gatt_init();                       // 4 - Initialize NimBLE configuration - gatt service
-    ble_gatts_count_cfg(gatt_svcs);            // 4 - Initialize NimBLE configuration - config gatt services
-    ble_gatts_add_svcs(gatt_svcs);             // 4 - Initialize NimBLE configuration - queues gatt services.
-    ble_hs_cfg.sync_cb = ble_app_on_sync;      // 5 - Initialize application
-    nimble_port_freertos_init(host_task);      // 6 - Run the thread
+    gatt_state_of_charge = 0;
 
     while(42)
     {
@@ -370,27 +523,49 @@ void app_main(void)
             uint8_t length;
             uint8_t data_buffer[24];
             char buffer[24];
+            uint16_t chr_val_handle;
+            int rc;
 
             smbus_read_word(&smbus_info, 0x0D, &register_value);
             snprintf(buffer, sizeof(buffer), "%d %%", register_value);
             lv_label_set_text(lbl_state_of_charge, buffer);
 
+            gatt_state_of_charge = register_value;
+            rc = ble_gatts_find_chr(&gatt_svr_svc_battery_uuid.u, BLE_UUID16_DECLARE(STATE_OF_CHARGE_VALUE), NULL, &chr_val_handle);
+            assert(rc == 0);
+            ble_gatts_chr_updated(chr_val_handle);
+
             smbus_read_word(&smbus_info, 0x09, &register_value);
             snprintf(buffer, sizeof(buffer), "%0.1f V", (float) register_value / 1000);
             lv_label_set_text(lbl_voltage, buffer);
 
+            gatt_voltage = register_value;
+            rc = ble_gatts_find_chr(&gatt_svr_svc_battery_uuid.u, BLE_UUID16_DECLARE(VOLTAGE_VALUE), NULL, &chr_val_handle);
+            assert(rc == 0);
+            ble_gatts_chr_updated(chr_val_handle);
+
             smbus_read_word(&smbus_info, 0x0A, &register_value);
-            snprintf(buffer, sizeof(buffer), "%d mA", register_value);
+            snprintf(buffer, sizeof(buffer), "%hd mA", register_value);
             lv_label_set_text(lbl_current, buffer);
 
+            gatt_current = register_value;
+            rc = ble_gatts_find_chr(&gatt_svr_svc_battery_uuid.u, BLE_UUID16_DECLARE(CURRENT_VALUE), NULL, &chr_val_handle);
+            assert(rc == 0);
+            ble_gatts_chr_updated(chr_val_handle);
+
             smbus_read_word(&smbus_info, 0x46, &register_value);
-            snprintf(buffer, sizeof(buffer), "%s", register_value & 0x06 ? "Pass" : "Fail");
+            snprintf(buffer, sizeof(buffer), "%s", register_value & 0x0006 == 0x0006 ? "Pass" : "Fail");
             lv_label_set_text(lbl_status, buffer);
 
             length = sizeof(data_buffer);
             smbus_read_block(&smbus_info, 0x23, data_buffer, &length);
             snprintf(buffer, sizeof(buffer), "%d", (data_buffer[6] << 8) | data_buffer[7]);
             lv_label_set_text(lbl_version, buffer);
+
+            gatt_current = register_value;
+            rc = ble_gatts_find_chr(&gatt_svr_svc_battery_uuid.u, BLE_UUID16_DECLARE(VERSION_VALUE), NULL, &chr_val_handle);
+            assert(rc == 0);
+            ble_gatts_chr_updated(chr_val_handle);
 
             lvgl_port_unlock();
         }
