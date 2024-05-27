@@ -554,7 +554,7 @@ void app_main(void)
             ble_gatts_chr_updated(chr_val_handle);
 
             smbus_read_word(&smbus_info, 0x46, &register_value);
-            snprintf(buffer, sizeof(buffer), "%s", register_value & 0x0006 == 0x0006 ? "Pass" : "Fail");
+            snprintf(buffer, sizeof(buffer), "%s", (register_value & 0x0006) == 0x0006 ? "Pass" : "Fail");
             lv_label_set_text(lbl_status, buffer);
 
             length = sizeof(data_buffer);
