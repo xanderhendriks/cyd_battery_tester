@@ -5,13 +5,17 @@ cffi==1.16.0
 cryptography==42.0.7
 ecdsa==0.19.0
 esptool==4.7.0
+flake8==7.0.0
 gitdb==4.0.11
 GitPython==3.1.43
 importlib_metadata==7.1.0
 intelhex==2.3.0
+mccabe==0.7.0
 packaging==24.0
 pefile==2023.2.7
+pycodestyle==2.11.1
 pycparser==2.22
+pyflakes==3.2.0
 pyinstaller==6.7.0
 pyinstaller-hooks-contrib==2024.6
 pyserial==3.5

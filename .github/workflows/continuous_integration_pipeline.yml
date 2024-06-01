@@ -10,6 +10,10 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4.1.5
+      - name: Install packages and dependencies
+        run: |
+          python3 -m pip install --upgrade pip==24.0.0
+          pip install -r python/requirements.txt
       - name: Flake8 static analysis
         uses: xanderhendriks/flake8-github-action@v1.0.2
         with:
