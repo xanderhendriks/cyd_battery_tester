@@ -1,8 +1,5 @@
 name: Continuous integration pipeline
-on:
-  push:
-    branches:
-      - master
+on: push
 jobs:
   analyse-code:
     name: Analyse code
@@ -67,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.3
         with:
           name: firmware-update-binary-win
-          path: dist/*.exe
+          path: dist/*
   pyinstaller-mac-build:
     needs: build-application
     name: Build fw uploader - Mac
@@ -94,4 +91,30 @@ jobs:
         uses: actions/upload-artifact@v4.3.3
         with:
           name: firmware-update-binary-mac
-          path: dist/*.exe
+          path: dist/*
+  release:
+    needs: [pyinstaller-win-build, pyinstaller-mac-build]
+    name: Release to Github
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: |
+            firmware-update-binary-win
+            firmware-update-binary-mac
+          path: dist
+      - name: Determine version
+        id: determine_version
+        run: |
+          version=$(find dist -name "cyd-battery-tester-firmware-update-win-*" | sed 's/dist\/cyd-battery-tester-firmware-update-win-\(.*\)\.exe/\1/')
+          echo "version=$version" >> $GITHUB_OUTPUT
+      - name: Release to Github
+        if: startsWith(github.ref, 'refs/tags')
+        id: create_release
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          name: ${{ steps.determine_version.outputs.version }}
+          draft: false
+          prerelease: false
+          artifacts: dist/*
