@@ -52,17 +52,17 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: esp32-binaries
-      - name: Test if files are there
-        run: |
-          dir -R *
-      - name: Create executable
-        uses: sayyid5416/pyinstaller@v1
+      - name: Setup python
+        uses: actions/setup-python@v5.1.0
         with:
-          python_ver: '3.9.2'
-          spec: 'python/cyd-battery-tester-firmware-update.spec'
-          requirements: 'python/requirements.txt'
-          exe_path: 'python/dist'
-          upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
+          python-version: '3.9.2'
+      - name: Install packages and dependencies
+        run: |
+          python3 -m pip install --upgrade pip==24.0.0
+          pip install -r python/requirements.txt
+      - name: Create firmware update executable
+        run: |
+          pyinstaller python/cyd-battery-tester-firmware-update.spec
   pyinstaller-mac-build:
     needs: build-application
     name: Build fw uploader MAC-OS
@@ -74,14 +74,14 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: esp32-binaries
-      - name: Test if files are there
-        run: |
-          ls -R
-      - name: Create executable
-        uses: sayyid5416/pyinstaller@v1
+      - name: Setup python
+        uses: actions/setup-python@v5.1.0
         with:
-          python_ver: '3.9.2'
-          spec: 'python/cyd-battery-tester-firmware-update.spec'
-          requirements: 'python/requirements.txt'
-          exe_path: 'python/dist'
-          upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
+          python-version: '3.9.2'
+      - name: Install packages and dependencies
+        run: |
+          python3 -m pip install --upgrade pip==24.0.0
+          pip install -r python/requirements.txt
+      - name: Create firmware update executable
+        run: |
+          pyinstaller python/cyd-battery-tester-firmware-update.spec
