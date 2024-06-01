@@ -43,7 +43,7 @@ jobs:
             !**/CMakeFiles/**
   pyinstaller-win-build:
     needs: build-application
-    name: Build fw uploader Windows
+    name: Build fw uploader - Win
     runs-on: windows-2022
     steps:
       - name: Checkout repository
@@ -67,10 +67,10 @@ jobs:
         uses: actions/upload-artifact@v4.3.3
         with:
           name: firmware-update-binary-win
-          path: python/dist/*.exe
+          path: dist/*.exe
   pyinstaller-mac-build:
     needs: build-application
-    name: Build fw uploader MAC-OS
+    name: Build fw uploader - Mac
     runs-on: macos-13
     steps:
       - name: Checkout repository
@@ -94,4 +94,4 @@ jobs:
         uses: actions/upload-artifact@v4.3.3
         with:
           name: firmware-update-binary-mac
-          path: python/dist/*.exe
+          path: dist/*.exe
