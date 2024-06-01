@@ -4,12 +4,23 @@ on:
     branches:
       - master
 jobs:
-  build-application:
-    name: Build the sample application binary
+  analyse-code:
+    name: Analyse code
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v4.1.5
+      - name: Flake8 static analysis
+        uses: xanderhendriks/flake8-github-action@v1.0.2
+        with:
+          checkName: 'analyse-code'   # NOTE: this needs to be the same as the job name
+  build-application:
+    needs: analyse-code
+    name: Build the application binary
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4.1.5
         with:
           submodules: 'recursive'
       - name: Build the binary
@@ -18,3 +29,49 @@ jobs:
           esp_idf_version: v5.2.1
           target: esp32
           path: 'esp32'
+      - name: Upload esp32 build artifacts
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: esp32-binaries
+          path: |
+            esp32/build/cyd_battery_tester.bin
+            esp32/build/bootloader/bootloader.bin
+            esp32/build/partition_table/partition_table.bin
+  pyinstaller-win-build:
+    needs: build-application
+    name: Build the firmware upload application for Windows
+    runs-on: windows-2022
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4.1.5
+      - name: Download esp32 build artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: esp32-binaries
+          path: python
+      - name: Create executable
+        uses: sayyid5416/pyinstaller@v1
+        with:
+          python_ver: '3.9.2'
+          spec: 'python/cyd-battery-tester-firmware-update.spec'
+          requirements: 'python/requirements.txt'
+          upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
+  pyinstaller-mac-build:
+    needs: build-application
+    name: Build the firmware upload application for MAC-OS
+    runs-on: macos-14
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4.1.5
+      - name: Download esp32 build artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: esp32-binaries
+          path: python
+      - name: Create executable
+        uses: sayyid5416/pyinstaller@v1
+        with:
+          python_ver: '3.9.2'
+          spec: 'python/cyd-battery-tester-firmware-update.spec'
+          requirements: 'python/requirements.txt'
+          upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
