@@ -38,12 +38,12 @@ jobs:
         with:
           name: esp32-binaries
           path: |
-            esp32/build/cyd_battery_tester.bin
-            esp32/build/bootloader/bootloader.bin
-            esp32/build/partition_table/partition_table.bin
+            **/*.bin
+            !esp32/managed_components/**
+            !**/CMakeFiles/**
   pyinstaller-win-build:
     needs: build-application
-    name: Build firmware uploader Windows
+    name: Build fw uploader Windows
     runs-on: windows-2022
     steps:
       - name: Checkout repository
@@ -52,7 +52,6 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: esp32-binaries
-          path: python
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
@@ -63,16 +62,18 @@ jobs:
           upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
   pyinstaller-mac-build:
     needs: build-application
-    name: Build firmware uploader MAC-OS
+    name: Build fw uploader MAC-OS
     runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.5
+      - name: Install dependencies
+        run: |
+          brew install gettext
       - name: Download esp32 build artifacts
         uses: actions/download-artifact@v4.1.7
         with:
           name: esp32-binaries
-          path: python
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
