@@ -54,7 +54,7 @@ jobs:
           name: esp32-binaries
       - name: Test if files are there
         run: |
-          dir *\*\*.bin
+          dir -R *
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
@@ -70,13 +70,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.5
-      - name: Test if files are there
-        run: |
-          find esp32/build/ -name "*"
       - name: Download esp32 build artifacts
         uses: actions/download-artifact@v4.1.7
         with:
           name: esp32-binaries
+      - name: Test if files are there
+        run: |
+          ls -R
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
