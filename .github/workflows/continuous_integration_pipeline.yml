@@ -54,7 +54,7 @@ jobs:
           name: esp32-binaries
       - name: Test if files are there
         run: |
-          find esp32/build/ -name "*"
+          dir *\*\*.bin
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
@@ -70,9 +70,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.5
-      - name: Look for gettext
+      - name: Test if files are there
         run: |
-          find /usr/local/opt/gettext -name "*"
+          find esp32/build/ -name "*"
       - name: Download esp32 build artifacts
         uses: actions/download-artifact@v4.1.7
         with:
@@ -80,6 +80,7 @@ jobs:
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
+          python_ver: '3.9.2'
           spec: 'python/cyd-battery-tester-firmware-update.spec'
           requirements: 'python/requirements.txt'
           exe_path: 'python/dist'
