@@ -12,7 +12,7 @@ datas += collect_data_files('esptool')
 def get_git_version():
     repo = git.Repo(search_parent_directories=True)
     tags = sorted(repo.tags, key=lambda t: t.commit.committed_datetime)
-    latest_tag = tags[-1] if tags None
+    latest_tag = tags[-1] if tags else None
     sha = repo.head.object.hexsha
     return f"{latest_tag}-{sha[:7]}" if latest_tag else sha[:10]
 

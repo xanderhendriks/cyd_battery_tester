@@ -8,7 +8,7 @@ jobs:
     name: Analyse code
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4.1.5
       - name: Install packages and dependencies
         run: |
@@ -20,14 +20,14 @@ jobs:
           checkName: 'analyse-code'   # NOTE: this needs to be the same as the job name
   build-application:
     needs: analyse-code
-    name: Build the application binary
+    name: Build application binary
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4.1.5
         with:
           submodules: 'recursive'
-      - name: Build the binary
+      - name: Build binary
         uses: espressif/esp-idf-ci-action@v1.1.0
         with:
           esp_idf_version: v5.2.1
@@ -43,10 +43,10 @@ jobs:
             esp32/build/partition_table/partition_table.bin
   pyinstaller-win-build:
     needs: build-application
-    name: Build the firmware upload application for Windows
+    name: Build firmware uploader Windows
     runs-on: windows-2022
     steps:
-      - name: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4.1.5
       - name: Download esp32 build artifacts
         uses: actions/download-artifact@v4.1.7
@@ -59,13 +59,14 @@ jobs:
           python_ver: '3.9.2'
           spec: 'python/cyd-battery-tester-firmware-update.spec'
           requirements: 'python/requirements.txt'
+          exe_path: 'python/dist'
           upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
   pyinstaller-mac-build:
     needs: build-application
-    name: Build the firmware upload application for MAC-OS
+    name: Build firmware uploader MAC-OS
     runs-on: macos-14
     steps:
-      - name: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4.1.5
       - name: Download esp32 build artifacts
         uses: actions/download-artifact@v4.1.7
@@ -75,7 +76,7 @@ jobs:
       - name: Create executable
         uses: sayyid5416/pyinstaller@v1
         with:
-          python_ver: '3.9.2'
           spec: 'python/cyd-battery-tester-firmware-update.spec'
           requirements: 'python/requirements.txt'
+          exe_path: 'python/dist'
           upload_exe_with_name: 'cyd-battery-tester-firmware-update-*.exe'
