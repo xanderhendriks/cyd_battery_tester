@@ -60,9 +60,14 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip==24.0.0
           pip install -r python/requirements.txt
-      - name: Create firmware update executable
+      - name: Build firmware update executable
         run: |
           pyinstaller python/cyd-battery-tester-firmware-update.spec
+      - name: Upload firmware update binary
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: firmware-update-binary-win
+          path: python/dist/*.exe
   pyinstaller-mac-build:
     needs: build-application
     name: Build fw uploader MAC-OS
@@ -82,6 +87,11 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip==24.0.0
           pip install -r python/requirements.txt
-      - name: Create firmware update executable
+      - name: Build firmware update executable
         run: |
           pyinstaller python/cyd-battery-tester-firmware-update.spec
+      - name: Upload firmware update binary
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: firmware-update-binary-mac
+          path: python/dist/*.exe

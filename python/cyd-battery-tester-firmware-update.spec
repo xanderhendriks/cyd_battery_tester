@@ -39,7 +39,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name=f'cyd-battery-tester-firmware-update-{platform.system().lower()[:3]}-{get_git_version()}',
+    name=f"cyd-battery-tester-firmware-update-{'win' if platform.system() == 'Windows' else 'mac'}-{get_git_version()}",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
