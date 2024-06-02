@@ -26,6 +26,12 @@
 
 static const char *TAG="lcd";
 
+void lv_log_cb(lv_log_level_t level, const char * buf)
+{
+    ESP_LOGI(TAG, "%d: %s", level, buf);
+}
+
+
 esp_err_t lcd_display_brightness_init(void)
 {
     const ledc_channel_config_t LCD_backlight_channel = {
@@ -38,7 +44,7 @@ esp_err_t lcd_display_brightness_init(void)
         .hpoint = 0,
         .flags.output_invert = false
     };
- 
+
     const ledc_timer_config_t LCD_backlight_timer = {
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_10_BIT,
@@ -49,7 +55,7 @@ esp_err_t lcd_display_brightness_init(void)
 
     ESP_ERROR_CHECK(ledc_timer_config(&LCD_backlight_timer));
     ESP_ERROR_CHECK(ledc_channel_config(&LCD_backlight_channel));
- 
+
     return ESP_OK;
 }
 
@@ -95,7 +101,7 @@ esp_err_t lcd_display_rotate(lv_display_t *lvgl_disp, lv_display_rotation_t dir)
 
 esp_err_t app_lcd_init(esp_lcd_panel_io_handle_t *lcd_io, esp_lcd_panel_handle_t *lcd_panel)
 {
-    const spi_bus_config_t buscfg = { 
+    const spi_bus_config_t buscfg = {
         .mosi_io_num = LCD_SPI_MOSI,
         .miso_io_num = LCD_SPI_MISO,
         .sclk_io_num = LCD_SPI_CLK,
@@ -150,6 +156,9 @@ lv_display_t *app_lvgl_init(esp_lcd_panel_io_handle_t lcd_io, esp_lcd_panel_hand
 
     esp_err_t e = lvgl_port_init(&lvgl_cfg);
 
+    lv_log_register_print_cb(lv_log_cb);
+
+
     if (e != ESP_OK)
     {
         ESP_LOGI(TAG, "lvgl_port_init() failed: %s", esp_err_to_name(e));
@@ -178,6 +187,6 @@ lv_display_t *app_lvgl_init(esp_lcd_panel_io_handle_t lcd_io, esp_lcd_panel_hand
             .swap_bytes = true,
         }
     };
-    
+
     return lvgl_port_add_disp(&disp_cfg);
 }
