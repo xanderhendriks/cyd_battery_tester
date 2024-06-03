@@ -26,12 +26,6 @@
 
 static const char *TAG="lcd";
 
-void lv_log_cb(lv_log_level_t level, const char * buf)
-{
-    ESP_LOGI(TAG, "%d: %s", level, buf);
-}
-
-
 esp_err_t lcd_display_brightness_init(void)
 {
     const ledc_channel_config_t LCD_backlight_channel = {
@@ -155,9 +149,6 @@ lv_display_t *app_lvgl_init(esp_lcd_panel_io_handle_t lcd_io, esp_lcd_panel_hand
     };
 
     esp_err_t e = lvgl_port_init(&lvgl_cfg);
-
-    lv_log_register_print_cb(lv_log_cb);
-
 
     if (e != ESP_OK)
     {

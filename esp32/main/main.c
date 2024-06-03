@@ -20,6 +20,10 @@
 #include "touch.h"
 #include "esp_app_desc.h"
 
+#define PROPERTY_BOX_HEIGHT 67
+#define PROPERTY_BOX_WIDTH 240
+#define END_OF_LIST_MARKER 0xFF
+
 #define I2C_MASTER_SCL_IO    22    // GPIO number for I2C master clock
 #define I2C_MASTER_SDA_IO    27    // GPIO number for I2C master data
 #define I2C_MASTER_NUM       I2C_NUM_0  // I2C port number for master dev
@@ -30,14 +34,6 @@
 #define I2C_BMS_ADDRESS (0x0B)
 
 static const char *TAG="demo";
-static lv_obj_t *lbl_state_of_charge;
-static lv_obj_t *lbl_voltage;
-static lv_obj_t *lbl_current;
-static lv_obj_t *lbl_status;
-static lv_obj_t *lbl_version;
-
-LV_IMG_DECLARE(file_arrow_left_right);
-LV_IMG_DECLARE(lock_remove);
 
 
 static esp_err_t i2c_master_init(void)
@@ -66,138 +62,221 @@ void ui_event_Screen(lv_event_t *e)
     }
 }
 
+typedef void (*GetValue)(char* value);
 
-static esp_err_t app_lvgl_main(void)
+typedef enum
 {
-    uint32_t height = 67;
+    POSITION_LEFT = 0,
+    POSITION_RIGHT,
+    POSITION_FULL
+} position_t;
+
+typedef enum
+{
+    PROPERTY_ID_STATE_OF_CHARGE = 0,
+    PROPERTY_ID_VOLTAGE,
+    PROPERTY_ID_CURRENT,
+    PROPERTY_ID_STATUS,
+    PROPERTY_ID_VERSION,
+} property_id_t;
+
+
+typedef struct
+{
+    uint8_t row;
+    char description[64];
+    position_t position;
+    property_id_t property_id;
+    char value[64];
+    lv_obj_t *btn_box;
+    lv_obj_t *lbl_description;
+    lv_obj_t *lbl_value;
+} property_box_data_t;
+
+
+typedef struct
+{
+    property_box_data_t property_boxes[8];
+} screen_page_t;
+
+
+screen_page_t screen_pages[] = {
+    {
+        .property_boxes = {
+            {0, "State of charge", POSITION_FULL, PROPERTY_ID_STATE_OF_CHARGE, "-- %"},
+            {1, "Voltage", POSITION_FULL, PROPERTY_ID_VOLTAGE, "-.- V"},
+            {2, "Current", POSITION_FULL, PROPERTY_ID_CURRENT, "-.- mA"},
+            {3, "Status", POSITION_LEFT, PROPERTY_ID_STATUS, "-"},
+            {3, "Version", POSITION_RIGHT, PROPERTY_ID_VERSION, "-"},
+            {END_OF_LIST_MARKER}
+        }
+    },
+    {
+        .property_boxes = {
+            {END_OF_LIST_MARKER}
+        }
+    },
+};
+
+void property_box_create(lv_obj_t *scr, property_box_data_t *property_box_data)
+{
+    uint8_t width;
+    uint8_t top;
+    enum _lv_align_t alignment;
+
+    top = property_box_data->row * PROPERTY_BOX_HEIGHT;
+
+    switch(property_box_data->position)
+    {
+        case POSITION_LEFT:
+            width = PROPERTY_BOX_WIDTH / 2 + 1;
+            alignment = LV_ALIGN_TOP_LEFT;
+            break;
+
+        case POSITION_RIGHT:
+            width = PROPERTY_BOX_WIDTH / 2;
+            alignment = LV_ALIGN_TOP_RIGHT;
+            break;
+
+        default:
+        case POSITION_FULL:
+            width = PROPERTY_BOX_WIDTH;
+            alignment = LV_ALIGN_TOP_MID;
+            break;
+    };
+
+    property_box_data->btn_box = lv_button_create(scr);
+    lv_obj_align(property_box_data->btn_box, alignment, 0, top);
+    lv_obj_set_size(property_box_data->btn_box, width, PROPERTY_BOX_HEIGHT + 1);
+    lv_obj_remove_flag(property_box_data->btn_box, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_color(property_box_data->btn_box, lv_color_hex(0x15171A), LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(property_box_data->btn_box, 2, LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(property_box_data->btn_box, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(property_box_data->btn_box, 10, LV_STATE_DEFAULT);
+
+    property_box_data->lbl_description = lv_label_create(property_box_data->btn_box);
+    lv_label_set_text(property_box_data->lbl_description, property_box_data->description);
+    lv_obj_set_style_text_color(property_box_data->lbl_description, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_align(property_box_data->lbl_description, LV_ALIGN_TOP_MID, 0, 0);
+
+    property_box_data->lbl_value = lv_label_create(property_box_data->btn_box);
+    lv_label_set_text_static(property_box_data->lbl_value, property_box_data->value);
+    lv_obj_set_style_text_color(property_box_data->lbl_value, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_align(property_box_data->lbl_value, LV_ALIGN_BOTTOM_MID, 0, 0);
+}
+
+
+static esp_err_t app_lvgl_main()
+{
     lv_obj_t *scr = lv_scr_act();
-    lv_style_t style_font_24;
-    lv_style_t style_font_36;
+    uint8_t page_index = 0;
+    uint8_t box_index = 0;
 
     lvgl_port_lock(0);
 
-    lv_style_init(&style_font_24);
-    lv_style_set_text_font(&style_font_24, &lv_font_montserrat_24);
-
-    lv_style_init(&style_font_36);
-    lv_style_set_text_font(&style_font_36, &lv_font_montserrat_36);
-
-    lv_obj_t *btn_state_of_charge = lv_button_create(scr);
-    lv_obj_align(btn_state_of_charge, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_size(btn_state_of_charge, 240, height);
-    lv_obj_set_style_bg_color(btn_state_of_charge, lv_color_hex(0x15171A), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn_state_of_charge, 2, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(btn_state_of_charge, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(btn_state_of_charge, 10, LV_STATE_DEFAULT);
-
-    lv_obj_t *lbl_state_of_charge_text = lv_label_create(btn_state_of_charge);
-    lv_label_set_text(lbl_state_of_charge_text, "State of charge");
-    lv_obj_set_style_text_color(lbl_state_of_charge_text, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_state_of_charge_text, LV_ALIGN_TOP_MID, 0, 0);
-
-    lbl_state_of_charge = lv_label_create(btn_state_of_charge);
-    lv_label_set_text(lbl_state_of_charge, "-- %");
-    lv_obj_set_style_text_color(lbl_state_of_charge, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl_state_of_charge, &style_font_24, LV_PART_MAIN);
-    lv_obj_align(lbl_state_of_charge, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-    lv_obj_t *btn_voltage = lv_button_create(scr);
-    lv_obj_align(btn_voltage, LV_ALIGN_TOP_MID, 0, height);
-    lv_obj_set_size(btn_voltage, 240, height);
-    lv_obj_set_style_bg_color(btn_voltage, lv_color_hex(0x15171A), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn_voltage, 2, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(btn_voltage, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(btn_voltage, 10, LV_STATE_DEFAULT);
-
-    lv_obj_t *lbl_voltage_text = lv_label_create(btn_voltage);
-    lv_label_set_text(lbl_voltage_text, "Voltage");
-    lv_obj_set_style_text_color(lbl_voltage_text, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_voltage_text, LV_ALIGN_TOP_MID, 0, 0);
-
-    lbl_voltage = lv_label_create(btn_voltage);
-    lv_label_set_text(lbl_voltage, "-.- V");
-    lv_obj_set_style_text_color(lbl_voltage, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl_voltage, &style_font_24, LV_PART_MAIN);
-    lv_obj_align(lbl_voltage, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-    lv_obj_t *btn_current = lv_button_create(scr);
-    lv_obj_align(btn_current, LV_ALIGN_TOP_MID, 0, 2*height);
-    lv_obj_set_size(btn_current, 240, height);
-    lv_obj_set_style_bg_color(btn_current, lv_color_hex(0x15171A), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn_current, 2, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(btn_current, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(btn_current, 10, LV_STATE_DEFAULT);
-
-    lv_obj_t *lbl_current_text = lv_label_create(btn_current);
-    lv_label_set_text(lbl_current_text, "Current");
-    lv_obj_set_style_text_color(lbl_current_text, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_current_text, LV_ALIGN_TOP_MID, 0, 0);
-
-    lbl_current = lv_label_create(btn_current);
-    lv_label_set_text(lbl_current, "-.- mA");
-    lv_obj_set_style_text_color(lbl_current, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl_current, &style_font_24, LV_PART_MAIN);
-    lv_obj_align(lbl_current, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-    lv_obj_t *btn_status = lv_button_create(scr);
-    lv_obj_align(btn_status, LV_ALIGN_TOP_LEFT, 0, 3*height);
-    lv_obj_set_size(btn_status, 120, height);
-    lv_obj_set_style_bg_color(btn_status, lv_color_hex(0x15171A), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn_status, 2, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(btn_status, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(btn_status, 10, LV_STATE_DEFAULT);
-
-    lv_obj_t *lbl_status_text = lv_label_create(btn_status);
-    lv_label_set_text(lbl_status_text, "Status");
-    lv_obj_set_style_text_color(lbl_status_text, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_status_text, LV_ALIGN_TOP_MID, 0, 0);
-
-    lbl_status = lv_label_create(btn_status);
-    lv_label_set_text(lbl_status, "-");
-    lv_obj_set_style_text_color(lbl_status, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl_status, &style_font_24, LV_PART_MAIN);
-    lv_obj_align(lbl_status, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-    lv_obj_t *btn_version = lv_button_create(scr);
-    lv_obj_align(btn_version, LV_ALIGN_TOP_RIGHT, 0, 3*height);
-    lv_obj_set_size(btn_version, 120, height);
-    lv_obj_set_style_bg_color(btn_version, lv_color_hex(0x15171A), LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn_version, 2, LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(btn_version, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(btn_version, 10, LV_STATE_DEFAULT);
-
-    lv_obj_t *lbl_version_text = lv_label_create(btn_version);
-    lv_label_set_text(lbl_version_text, "version");
-    lv_obj_set_style_text_color(lbl_version_text, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_align(lbl_version_text, LV_ALIGN_TOP_MID, 0, 0);
-
-    lbl_version = lv_label_create(btn_version);
-    lv_label_set_text(lbl_version, "-");
-    lv_obj_set_style_text_color(lbl_version, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_add_style(lbl_version, &style_font_24, LV_PART_MAIN);
-    lv_obj_align(lbl_version, LV_ALIGN_BOTTOM_MID, 0, 0);
+    while (screen_pages[page_index].property_boxes[0].row != END_OF_LIST_MARKER)
+    {
+        box_index = 0;
+        while (screen_pages[page_index].property_boxes[box_index].row != END_OF_LIST_MARKER)
+        {
+            property_box_create(scr, &screen_pages[page_index].property_boxes[box_index]);
+            box_index++;
+        }
+        page_index++;
+    }
 
     lv_obj_t *btn_page = lv_button_create(scr);
     lv_obj_align(btn_page, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-    lv_obj_set_size(btn_page, 120, 50);
+    lv_obj_set_size(btn_page, 119, 50);
     lv_obj_set_style_bg_color(btn_page, lv_color_make(0xe7, 0x7b, 0x0f), LV_STATE_DEFAULT);
     lv_obj_add_event_cb(btn_page, ui_event_Screen, LV_EVENT_ALL, btn_page);
 
-    lv_obj_t *img_page = lv_img_create(btn_page);
-    lv_image_set_src(img_page, &file_arrow_left_right);
-    lv_obj_align(img_page, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_t *lbl_page = lv_label_create(btn_page);
+    lv_label_set_text(lbl_page, "next\npage");
+    lv_obj_set_style_text_color(lbl_page, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_align(lbl_page, LV_ALIGN_CENTER, 0, 0);
 
     lv_obj_t *btn_reset = lv_button_create(scr);
     lv_obj_align(btn_reset, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    lv_obj_set_size(btn_reset, 120, 50);
+    lv_obj_set_size(btn_reset, 119, 50);
     lv_obj_set_style_bg_color(btn_reset, lv_color_make(0xe7, 0x7b, 0x0f), LV_STATE_DEFAULT);
     lv_obj_add_event_cb(btn_reset, ui_event_Screen, LV_EVENT_ALL, btn_reset);
 
-    lv_obj_t *img_reset = lv_img_create(btn_reset);
-    lv_image_set_src(img_reset, &lock_remove);
-    lv_obj_align(img_reset, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_t *lbl_reset = lv_label_create(btn_reset);
+    lv_label_set_text(lbl_reset, "  reset\nbattery");
+    lv_obj_set_style_text_color(lbl_reset, lv_color_white(), LV_STATE_DEFAULT);
+    lv_obj_align(lbl_reset, LV_ALIGN_CENTER, 0, 0);
 
     lvgl_port_unlock();
+
+    return ESP_OK;
+}
+
+static esp_err_t update_property_values(smbus_info_t* smbus_info)
+{
+    uint8_t page_index = 0;
+    uint8_t box_index = 0;
+
+    while (screen_pages[page_index].property_boxes[0].row != END_OF_LIST_MARKER)
+    {
+        box_index = 0;
+        while (screen_pages[page_index].property_boxes[box_index].row != END_OF_LIST_MARKER)
+        {
+            uint16_t register_value;
+            uint8_t length;
+            uint8_t data_buffer[24];
+
+            switch(screen_pages[page_index].property_boxes[box_index].property_id)
+            {
+                case PROPERTY_ID_STATE_OF_CHARGE:
+                    smbus_read_word(smbus_info, 0x0D, &register_value);
+                    snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "%d %%", register_value);
+                    break;
+
+                case PROPERTY_ID_VOLTAGE:
+                    smbus_read_word(smbus_info, 0x09, &register_value);
+                    snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "%0.1f V", (float) register_value / 1000);
+                    break;
+
+                case PROPERTY_ID_CURRENT:
+                    smbus_read_word(smbus_info, 0x0A, &register_value);
+                    snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "%hd mA", register_value);
+                    break;
+
+                case PROPERTY_ID_STATUS:
+                    smbus_read_word(smbus_info, 0x46, &register_value);
+                    snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "%s", (register_value & 0x0006) == 0x0006 ? "Pass" : "Fail");
+                    // snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "%s", esp_app_get_description()->version);
+                    break;
+
+                case PROPERTY_ID_VERSION:
+                    length = sizeof(data_buffer);
+                    smbus_read_block(smbus_info, 0x21, data_buffer, &length);
+                    if (length > 0)
+                    {
+                        snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "%*s", (int) length, data_buffer);
+                    }
+                    else
+                    {
+                        snprintf(screen_pages[page_index].property_boxes[box_index].value, sizeof(screen_pages[page_index].property_boxes[box_index].value), "-");
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+
+            if (lvgl_port_lock(0))
+            {
+                lv_label_set_text_static(screen_pages[page_index].property_boxes[box_index].lbl_value, screen_pages[page_index].property_boxes[box_index].value);
+
+                lvgl_port_unlock();
+            }
+
+            box_index++;
+        }
+        page_index++;
+    }
 
     return ESP_OK;
 }
@@ -210,6 +289,7 @@ void app_main(void)
     esp_lcd_touch_handle_t tp;
     lvgl_port_touch_cfg_t touch_cfg;
     lv_display_t *lvgl_display = NULL;
+    uint8_t page_index = 0;
 
     ESP_ERROR_CHECK(lcd_display_brightness_init());
 
@@ -236,45 +316,7 @@ void app_main(void)
 
     for (;;)
     {
-        if (lvgl_port_lock(0))
-        {
-            uint16_t register_value;
-            uint8_t length;
-            uint8_t data_buffer[24];
-            char buffer[32];
-
-            smbus_read_word(&smbus_info, 0x0D, &register_value);
-            snprintf(buffer, sizeof(buffer), "%d %%", register_value);
-            lv_label_set_text(lbl_state_of_charge, buffer);
-
-            smbus_read_word(&smbus_info, 0x09, &register_value);
-            snprintf(buffer, sizeof(buffer), "%0.1f V", (float) register_value / 1000);
-            lv_label_set_text(lbl_voltage, buffer);
-
-            smbus_read_word(&smbus_info, 0x0A, &register_value);
-            snprintf(buffer, sizeof(buffer), "%hd mA", register_value);
-            lv_label_set_text(lbl_current, buffer);
-
-            smbus_read_word(&smbus_info, 0x46, &register_value);
-            // snprintf(buffer, sizeof(buffer), "%s", (register_value & 0x0006) == 0x0006 ? "Pass" : "Fail");
-            snprintf(buffer, sizeof(buffer), "%s", esp_app_get_description()->version);
-            lv_label_set_text(lbl_status, buffer);
-
-            length = sizeof(data_buffer);
-            smbus_read_block(&smbus_info, 0x21, data_buffer, &length);
-            if (length > 0)
-            {
-                snprintf(buffer, sizeof(buffer), "%*s", (int) length, data_buffer);
-            }
-            else
-            {
-                snprintf(buffer, sizeof(buffer), "-");
-            }
-            lv_label_set_text(lbl_version, buffer);
-
-            lvgl_port_unlock();
-        }
-
+        update_property_values(&smbus_info);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     vTaskDelay(portMAX_DELAY);
