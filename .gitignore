@@ -2,5 +2,6 @@
 esp32/build/*
 esp32/managed_components/*
 esp32/dependencies.lock
+esp32/sdkconfig.old
 python/build/*
 python/dist/*
