@@ -3,7 +3,7 @@ on: push
 jobs:
   analyse-code:
     name: Analyse code
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.5
@@ -18,7 +18,7 @@ jobs:
   build-application:
     needs: analyse-code
     name: Build application binary
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.5
@@ -96,7 +96,7 @@ jobs:
     needs: [pyinstaller-win-build, pyinstaller-mac-build]
     if: startsWith(github.ref, 'refs/tags')
     name: Release to Github
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Download win artifact
         uses: actions/download-artifact@v4.1.7
