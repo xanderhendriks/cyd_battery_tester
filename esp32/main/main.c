@@ -97,7 +97,7 @@ static bool update_property_values_cb(ui_property_box_data_t* property_box_data)
 
         case PROPERTY_ID_CURRENT:
             error = battery_current_get(&register_value);
-            snprintf(value_buffer, sizeof(value_buffer), "%s %hd mA", (int16_t) register_value >= -50 ? "#00FF00" : "#FF0000", register_value);
+            snprintf(value_buffer, sizeof(value_buffer), "%s %hd mA", (int16_t) register_value >= -60 ? "#00FF00" : "#FF0000", register_value);
             break;
 
         case PROPERTY_ID_SAFETY_STATUS:
