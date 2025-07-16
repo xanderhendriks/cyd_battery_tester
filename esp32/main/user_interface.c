@@ -73,6 +73,7 @@ static void property_box_create(lv_obj_t *cont, ui_property_box_data_t *property
     property_box_data->lbl_value = lv_label_create(property_box_data->cont);
     lv_label_set_text_static(property_box_data->lbl_value, property_box_data->value);
     lv_obj_set_style_text_color(property_box_data->lbl_value, lv_color_white(), 0);
+    lv_label_set_recolor(property_box_data->lbl_value, true);
     lv_obj_align(property_box_data->lbl_value, LV_ALIGN_BOTTOM_MID, 0, 0);
 }
 
@@ -131,10 +132,13 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
     }
 
     lv_obj_t *btn_page = lv_button_create(scr);
+    // lv_obj_align(btn_page, LV_ALIGN_BOTTOM_LEFT, 5, -5);
+    // lv_obj_set_pos(btn_page, 10, 20);
+    // lv_obj_set_size(btn_page, 100, 50);
     lv_obj_align(btn_page, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_set_size(btn_page, 119, 62);
     lv_obj_set_style_bg_color(btn_page, lv_color_make(0xe7, 0x7b, 0x0f), 0);
-    lv_obj_add_event_cb(btn_page, button_press_cb, LV_EVENT_ALL, btn_page);
+    lv_obj_add_event_cb(btn_page, button_press_cb, LV_EVENT_ALL, (void *) UI_BTN_ID_NEXT_PAGE);
 
     lv_obj_t *lbl_page = lv_label_create(btn_page);
     lv_label_set_text(lbl_page, "Next\npage");
@@ -143,10 +147,13 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
     lv_obj_align(lbl_page, LV_ALIGN_CENTER, 0, 0);
 
     lv_obj_t *btn_reset = lv_button_create(scr);
+    // lv_obj_align(btn_reset, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
+    // lv_obj_set_pos(btn_reset, 20, 100);
+    // lv_obj_set_size(btn_reset, 100, 50);
     lv_obj_align(btn_reset, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
     lv_obj_set_size(btn_reset, 119, 62);
     lv_obj_set_style_bg_color(btn_reset, lv_color_make(0xe7, 0x7b, 0x0f), 0);
-    lv_obj_add_event_cb(btn_reset, button_press_cb, LV_EVENT_ALL, btn_reset);
+    lv_obj_add_event_cb(btn_reset, button_press_cb, LV_EVENT_ALL, (void *) UI_BTN_ID_RESET_BATTERY);
 
     lv_obj_t *lbl_reset = lv_label_create(btn_reset);
     lv_label_set_text(lbl_reset, "Reset\nbattery");
@@ -162,21 +169,35 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
 
 void ui_next_page(void)
 {
-    lv_obj_add_flag(ui_screen_pages[ui_screen_page_index].cont, LV_OBJ_FLAG_HIDDEN);
+    uint8_t screen_page_index = ui_screen_page_index;
 
-    ui_screen_page_index++;
-    if (ui_screen_pages[ui_screen_page_index].property_boxes[0].row == UI_END_OF_LIST_MARKER)
+    screen_page_index++;
+    if (ui_screen_pages[screen_page_index].property_boxes[0].row == UI_END_OF_LIST_MARKER)
     {
-        ui_screen_page_index = 0;
+        screen_page_index = 0;
     }
-    lv_obj_remove_flag(ui_screen_pages[ui_screen_page_index].cont, LV_OBJ_FLAG_HIDDEN);
+
+    ui_screen_page_index = screen_page_index;
+    ESP_LOGI(TAG, "Switching to page %d", ui_screen_page_index);
 }
 
-esp_err_t ui_update_property_values(void)
+esp_err_t ui_update(void)
 {
-    uint8_t box_index = 0;
+    static uint8_t screen_page_index = 0;
+    static uint8_t box_index = 0;
 
-    while (ui_screen_pages[ui_screen_page_index].property_boxes[box_index].row != UI_END_OF_LIST_MARKER)
+    if (screen_page_index != ui_screen_page_index)
+    {
+        ESP_LOGI(TAG, "Hide page %d", (int) screen_page_index);
+        lv_obj_add_flag(ui_screen_pages[screen_page_index].cont, LV_OBJ_FLAG_HIDDEN);
+        screen_page_index = ui_screen_page_index;
+
+        ESP_LOGI(TAG, "Unhide page %d", (int) screen_page_index);
+        lv_obj_remove_flag(ui_screen_pages[screen_page_index].cont, LV_OBJ_FLAG_HIDDEN);
+        box_index = 0;
+    }
+
+    if (ui_screen_pages[ui_screen_page_index].property_boxes[box_index].row != UI_END_OF_LIST_MARKER)
     {
         if (ui_update_property_values_cb(&ui_screen_pages[ui_screen_page_index].property_boxes[box_index]))
         {
@@ -189,8 +210,10 @@ esp_err_t ui_update_property_values(void)
         }
 
         box_index++;
-
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+    else
+    {
+        box_index = 0;
     }
 
     return ESP_OK;

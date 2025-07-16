@@ -1,0 +1,30 @@
+{
+    "name": "CYD battery tester container",
+    "build": {
+        "dockerfile": "${localWorkspaceFolder}/Dockerfile"
+    },
+    "platform": "linux/amd64",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workdir,type=bind",
+    "workspaceFolder": "/workdir",
+    "runArgs": [
+        "--privileged",
+        "--user=1000:1000",
+        "--mount",
+        "type=bind,source=${env:HOME}/.ssh,target=/home/ubuntu/.ssh,readonly",
+        "--device=/dev/bus/usb",
+        "--group-add=dialout"
+    ],
+    "settings": {
+        "cmake.configureOnOpen": true
+    },
+    "extensions": [
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-azuretools.vscode-docker",
+        "xaver.clang-format",
+        "espressif.esp-idf-extension"
+    ],
+    "postStartCommand": "echo 'source $IDF_PATH/export.sh' >> ~/.bashrc",
+    "postCreateCommand": ""
+}

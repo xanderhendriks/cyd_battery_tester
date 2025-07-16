@@ -13,6 +13,8 @@ typedef enum
     PROPERTY_ID_STATE_OF_CHARGE = 0,
     PROPERTY_ID_VOLTAGE,
     PROPERTY_ID_CURRENT,
+    PROPERTY_ID_SAFETY_STATUS,
+    PROPERTY_ID_SAFETY_ALERT,
     PROPERTY_ID_STATUS,
     PROPERTY_ID_VERSION,
     PROPERTY_ID_NAME,
@@ -25,6 +27,12 @@ typedef enum
     POSITION_RIGHT,
     POSITION_FULL
 } ui_position_t;
+
+typedef enum
+{
+    UI_BTN_ID_NEXT_PAGE = 0,
+    UI_BTN_ID_RESET_BATTERY,
+} ui_btn_id_t;
 
 typedef struct
 {
@@ -54,6 +62,6 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
 
 void ui_next_page(void);
 
-esp_err_t ui_update_property_values(void);
+esp_err_t ui_update(void);
 
 #endif
