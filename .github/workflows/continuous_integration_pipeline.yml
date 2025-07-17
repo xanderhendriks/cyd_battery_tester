@@ -52,7 +52,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.9.2'
+          python-version: '3.12'
       - name: Install packages and dependencies
         run: |
           python3 -m pip install --upgrade pip==24.0.0
@@ -79,7 +79,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.9.2'
+          python-version: '3.12'
       - name: Install packages and dependencies
         run: |
           python3 -m pip install --upgrade pip==24.0.0
