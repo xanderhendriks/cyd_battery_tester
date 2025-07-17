@@ -30,17 +30,20 @@ ui_screen_page_t screen_pages[] = {
             {0, "State of charge", POSITION_FULL, PROPERTY_ID_STATE_OF_CHARGE, "-- %"},
             {1, "Voltage", POSITION_LEFT, PROPERTY_ID_VOLTAGE, "-.- V"},
             {1, "Current", POSITION_RIGHT, PROPERTY_ID_CURRENT, "-.- mA"},
-            {2, "Safety status", POSITION_LEFT, PROPERTY_ID_SAFETY_STATUS, "-"},
-            {2, "Safety alert", POSITION_RIGHT, PROPERTY_ID_SAFETY_ALERT, "-"},
-            {3, "Version", POSITION_LEFT, PROPERTY_ID_VERSION, "-"},
+            {2, "Safety s", POSITION_LEFT, PROPERTY_ID_SAFETY_STATUS, "-"},
+            {2, "Safety a", POSITION_RIGHT, PROPERTY_ID_SAFETY_ALERT, "-"},
+            {3, "Operation s", POSITION_LEFT, PROPERTY_ID_OPERATION_STATUS, "-"},
             {3, "Status", POSITION_RIGHT, PROPERTY_ID_STATUS, "-"},
             {UI_END_OF_LIST_MARKER}
         }
     },
     {
         .property_boxes = {
-            {0, "Name", POSITION_FULL, PROPERTY_ID_NAME, "-"},
-            {1, "FW Version", POSITION_FULL, PROPERTY_ID_FW_VERSION, "-"},
+            {0, "Health", POSITION_LEFT, PROPERTY_ID_HEALTH, "-"},
+            {0, "Cycle count", POSITION_RIGHT, PROPERTY_ID_CYCLE_COUNT, "-"},
+            {1, "Name", POSITION_LEFT, PROPERTY_ID_NAME, "-"},
+            {1, "Version", POSITION_RIGHT, PROPERTY_ID_VERSION, "-"},
+            {2, "FW Version", POSITION_FULL, PROPERTY_ID_FW_VERSION, "-"},
             {UI_END_OF_LIST_MARKER}
         }
     },
@@ -124,6 +127,37 @@ static bool update_property_values_cb(ui_property_box_data_t* property_box_data)
             length = sizeof(data_buffer);
             error = battery_name_get((char*) data_buffer, &length);
             snprintf(value_buffer, sizeof(value_buffer), "%s", data_buffer);
+            break;
+
+        case PROPERTY_ID_OPERATION_STATUS:
+            error = battery_operation_status_get(&word_register_value);
+
+            switch(battery_get_last_detected_type())
+            {
+                case BATTERY_TYPE_BQ20Z95:
+                    // BQ20Z95 operation status is a 16-bit value
+                    snprintf(value_buffer, sizeof(value_buffer), "%s %04X", (word_register_value & 0b1110101100111001) == 0b1000000000000001 ? "#00FF00" : "#FF0000", (uint16_t) word_register_value);
+                    break;
+
+                case BATTERY_TYPE_BQ40Z50:
+                    // BQ40Z50 operation status is a 32-bit value
+                    snprintf(value_buffer, sizeof(value_buffer), "%s %08lX", (word_register_value & 0b11111111111111111111111101111111) == 0b00000000000000000000000100000111 ? "#00FF00" : "#FF0000", word_register_value);
+                    break;
+
+                default:
+                    error = ESP_FAIL;
+                    break;
+            }
+            break;
+
+        case PROPERTY_ID_HEALTH:
+            error = battery_state_of_health(&register_value);
+            snprintf(value_buffer, sizeof(value_buffer), "%s %d", register_value >= 10 ? "#00FF00" : "#FF0000", register_value);
+            break;
+
+        case PROPERTY_ID_CYCLE_COUNT:
+            error = battery_cycle_count(&register_value);
+            snprintf(value_buffer, sizeof(value_buffer), "%s %d", register_value < 1000 ? "#00FF00" : "#FF0000", register_value);
             break;
 
         case PROPERTY_ID_VERSION:

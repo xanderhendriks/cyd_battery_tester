@@ -15,6 +15,8 @@ esp_err_t battery_init(void);
 esp_err_t battery_reset(void);
 
 esp_err_t battery_detect_type(battery_type_t *type);
+battery_type_t battery_get_last_detected_type(void);
+
 
 esp_err_t battery_state_of_charge_get(uint16_t *register_value);
 esp_err_t battery_voltage_get(uint16_t *register_value);
@@ -24,5 +26,8 @@ esp_err_t battery_safety_alert_get(uint32_t *register_value);
 esp_err_t battery_status_get(uint16_t *register_value);
 esp_err_t battery_name_get(char *data_buffer, size_t *length);
 esp_err_t battery_version_get(uint16_t *register_value);
+esp_err_t battery_operation_status_get(uint32_t *register_value);
+esp_err_t battery_state_of_health(uint16_t *register_value);
+esp_err_t battery_cycle_count(uint16_t *register_value);
 
 #endif

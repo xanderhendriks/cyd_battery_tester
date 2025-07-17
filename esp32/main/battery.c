@@ -14,6 +14,7 @@
 #define I2C_BMS_ADDRESS (0x0B)
 
 static smbus_info_t smbus_info;
+static battery_type_t battery_last_detected_type = BATTERY_TYPE_UNKNOWN;
 static const char *TAG="battery";
 
 esp_err_t battery_init(void)
@@ -82,7 +83,14 @@ esp_err_t battery_detect_type(battery_type_t *type)
         *type = BATTERY_TYPE_UNKNOWN;
     }
 
+    battery_last_detected_type = *type;
+
     return error;
+}
+
+battery_type_t battery_get_last_detected_type(void)
+{
+    return battery_last_detected_type;
 }
 
 esp_err_t battery_state_of_charge_get(uint16_t *register_value)
@@ -119,7 +127,7 @@ esp_err_t battery_safety_status_get(uint32_t *register_value)
         error = smbus_i2c_read_block(&smbus_info, 0x50, data_buffer, 5);
         if (error == ESP_OK)
         {
-            *register_value = (data_buffer[1] << 24) | (data_buffer[2] << 16) | (data_buffer[3] << 8) | data_buffer[4];
+            *register_value = (data_buffer[4] << 24) | (data_buffer[3] << 16) | (data_buffer[2] << 8) | data_buffer[1];
         }
     }
 
@@ -145,7 +153,7 @@ esp_err_t battery_safety_alert_get(uint32_t *register_value)
         error = smbus_i2c_read_block(&smbus_info, 0x51, data_buffer, 5);
         if (error == ESP_OK)
         {
-            *register_value = (data_buffer[1] << 24) | (data_buffer[2] << 16) | (data_buffer[3] << 8) | data_buffer[4];
+            *register_value = (data_buffer[4] << 24) | (data_buffer[3] << 16) | (data_buffer[2] << 8) | data_buffer[1];
         }
     }
 
@@ -209,4 +217,40 @@ esp_err_t battery_version_get(uint16_t *register_value)
     }
 
     return error;
+}
+
+esp_err_t battery_operation_status_get(uint32_t *register_value)
+{
+    esp_err_t error = ESP_FAIL;
+    battery_type_t type = BATTERY_TYPE_UNKNOWN;
+    uint8_t data_buffer[5] = {0};
+
+    *register_value = 0;
+
+    battery_detect_type(&type);
+
+    if (type == BATTERY_TYPE_BQ20Z95)
+    {
+        smbus_read_word(&smbus_info, 0x54, (uint16_t*) register_value);
+    }
+    else if (type == BATTERY_TYPE_BQ40Z50)
+    {
+        error = smbus_i2c_read_block(&smbus_info, 0x54, data_buffer, 5);
+        if (error == ESP_OK)
+        {
+            *register_value = (data_buffer[4] << 24) | (data_buffer[3] << 16) | (data_buffer[2] << 8) | data_buffer[1];
+        }
+    }
+
+    return error;
+}
+
+esp_err_t battery_state_of_health(uint16_t *register_value)
+{
+    return smbus_read_word(&smbus_info, 0x4F, register_value);
+}
+
+esp_err_t battery_cycle_count(uint16_t *register_value)
+{
+    return smbus_read_word(&smbus_info, 0x17, register_value);
 }
