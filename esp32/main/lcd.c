@@ -13,7 +13,6 @@
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_ops.h>
-#include <esp_timer.h>
 #include <driver/gpio.h>
 #include <driver/ledc.h>
 #include <driver/spi_master.h>
@@ -55,10 +54,12 @@ esp_err_t lcd_display_brightness_init(void)
 
 esp_err_t lcd_display_brightness_set(int brightness_percent)
 {
-    if (brightness_percent > 100) {
+    if (brightness_percent > 100) 
+    {
         brightness_percent = 100;
     }
-    if (brightness_percent < 0) {
+    if (brightness_percent < 0)
+    {
         brightness_percent = 0;
     }
 

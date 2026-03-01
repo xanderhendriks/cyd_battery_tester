@@ -1,5 +1,7 @@
 #include "user_interface.h"
 
+#include <stdint.h>
+
 #include <esp_check.h>
 #include <esp_log.h>
 #include <esp_lvgl_port.h>
@@ -13,7 +15,6 @@ static const char *TAG="ui";
 static uint8_t ui_screen_page_index = 0;
 static ui_screen_page_t *ui_screen_pages;
 update_property_values_cb_t ui_update_property_values_cb;
-
 static void page_container_create(lv_obj_t *scr, ui_screen_page_t *screen_page);
 
 static void property_box_create(lv_obj_t *cont, ui_property_box_data_t *property_box_data);
@@ -86,7 +87,7 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
     esp_lcd_panel_io_handle_t lcd_io;
     esp_lcd_panel_handle_t lcd_panel;
     esp_lcd_touch_handle_t tp;
-    lvgl_port_touch_cfg_t touch_cfg;
+    lvgl_port_touch_cfg_t touch_cfg = {0};
     lv_display_t *lvgl_display = NULL;
 
     ui_update_property_values_cb = update_property_values_cb;
@@ -105,6 +106,8 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
     ESP_ERROR_CHECK(app_touch_init(&tp));
     touch_cfg.disp = lvgl_display;
     touch_cfg.handle = tp;
+    touch_cfg.scale.x = 1.0f;
+    touch_cfg.scale.y = 1.0f;
     lvgl_port_add_touch(&touch_cfg);
 
     ESP_ERROR_CHECK(lcd_display_brightness_set(75));
@@ -132,13 +135,10 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
     }
 
     lv_obj_t *btn_page = lv_button_create(scr);
-    // lv_obj_align(btn_page, LV_ALIGN_BOTTOM_LEFT, 5, -5);
-    // lv_obj_set_pos(btn_page, 10, 20);
-    // lv_obj_set_size(btn_page, 100, 50);
     lv_obj_align(btn_page, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_obj_set_size(btn_page, 119, 62);
     lv_obj_set_style_bg_color(btn_page, lv_color_make(0xe7, 0x7b, 0x0f), 0);
-    lv_obj_add_event_cb(btn_page, button_press_cb, LV_EVENT_ALL, (void *) UI_BTN_ID_NEXT_PAGE);
+    lv_obj_add_event_cb(btn_page, button_press_cb, LV_EVENT_CLICKED, (void *) (uintptr_t) UI_BTN_ID_NEXT_PAGE);
 
     lv_obj_t *lbl_page = lv_label_create(btn_page);
     lv_label_set_text(lbl_page, "Next\npage");
@@ -147,13 +147,10 @@ esp_err_t ui_init(ui_screen_page_t *screen_pages, update_property_values_cb_t up
     lv_obj_align(lbl_page, LV_ALIGN_CENTER, 0, 0);
 
     lv_obj_t *btn_reset = lv_button_create(scr);
-    // lv_obj_align(btn_reset, LV_ALIGN_BOTTOM_RIGHT, -5, -5);
-    // lv_obj_set_pos(btn_reset, 20, 100);
-    // lv_obj_set_size(btn_reset, 100, 50);
     lv_obj_align(btn_reset, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
     lv_obj_set_size(btn_reset, 119, 62);
     lv_obj_set_style_bg_color(btn_reset, lv_color_make(0xe7, 0x7b, 0x0f), 0);
-    lv_obj_add_event_cb(btn_reset, button_press_cb, LV_EVENT_ALL, (void *) UI_BTN_ID_RESET_BATTERY);
+    lv_obj_add_event_cb(btn_reset, button_press_cb, LV_EVENT_CLICKED, (void *) (uintptr_t) UI_BTN_ID_RESET_BATTERY);
 
     lv_obj_t *lbl_reset = lv_label_create(btn_reset);
     lv_label_set_text(lbl_reset, "Reset\nbattery");

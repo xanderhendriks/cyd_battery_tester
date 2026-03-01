@@ -4,7 +4,6 @@
 
 #include <esp_log.h>
 #include <esp_err.h>
-#include <esp_timer.h>
 #include <esp_lcd_touch.h>
 #include <esp_lcd_touch_xpt2046.h>
 
@@ -44,7 +43,8 @@ esp_err_t app_touch_init(esp_lcd_touch_handle_t *tp)
         .flags = { .dc_low_on_data = 0, .octal_mode = 0, .sio_mode = 0, .lsb_first = 0, .cs_high_active = 0 } };
 
     static const int SPI_MAX_TRANSFER_SIZE = 32768;
-    const spi_bus_config_t buscfg_touch = { .mosi_io_num = TOUCH_SPI_MOSI,
+    const spi_bus_config_t buscfg_touch = {
+        .mosi_io_num = TOUCH_SPI_MOSI,
         .miso_io_num = TOUCH_SPI_MISO,
         .sclk_io_num = TOUCH_SPI_CLK,
         .quadwp_io_num = GPIO_NUM_NC,
@@ -61,7 +61,7 @@ esp_err_t app_touch_init(esp_lcd_touch_handle_t *tp)
     esp_lcd_touch_config_t tp_cfg = {.x_max = LCD_H_RES,
                                    .y_max = LCD_V_RES,
                                    .rst_gpio_num = TOUCH_RST,
-                                   .int_gpio_num = TOUCH_IRQ,
+                                   .int_gpio_num = GPIO_NUM_NC,
                                    .levels = {.reset = 0, .interrupt = 0},
                                    .flags =
                                        {
