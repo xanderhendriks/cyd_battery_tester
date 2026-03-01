@@ -22,6 +22,7 @@ pyserial==3.5
 pywin32-ctypes==0.2.2
 PyYAML==6.0.1
 reedsolo==1.7.0
+setuptools==82.0.0
 six==1.16.0
 smmap==5.0.1
 zipp==3.19.1
