@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -57,22 +58,20 @@ ui_screen_page_t screen_pages[] = {
 static void button_press_cb(lv_event_t *event)
 {
     lv_event_code_t event_code = lv_event_get_code(event);
-    ui_btn_id_t btn = (ui_btn_id_t) lv_event_get_user_data(event);
-
-    // ESP_LOGI(TAG, "Button action");
+    ui_btn_id_t btn = (ui_btn_id_t) (uintptr_t) lv_event_get_user_data(event);
 
     if (event_code == LV_EVENT_CLICKED)
     {
-        // if (btn == UI_BTN_ID_NEXT_PAGE)
-        // {
+        if (btn == UI_BTN_ID_NEXT_PAGE)
+        {
             ESP_LOGI(TAG, "Next page");
             ui_next_page();
-        // }
-        // else if (btn == UI_BTN_ID_RESET_BATTERY)
-        // {
-        //     ESP_LOGI(TAG, "Resetting battery");
-        //     battery_reset();
-        // }
+        }
+        else if (btn == UI_BTN_ID_RESET_BATTERY)
+        {
+            ESP_LOGI(TAG, "Resetting battery");
+            battery_reset();
+        }
     }
 }
 

@@ -3,28 +3,33 @@
     "build": {
         "dockerfile": "${localWorkspaceFolder}/Dockerfile"
     },
-    "platform": "linux/amd64",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workdir,type=bind",
-    "workspaceFolder": "/workdir",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace/esp32",
+    "containerUser": "ubuntu",
+    "mounts": [
+        // USB
+        "source=/dev/bus/usb,target=/dev/bus/usb,type=bind,consistency=cached",
+    ],
     "runArgs": [
         "--privileged",
-        "--user=1000:1000",
-        "--mount",
-        "type=bind,source=${env:HOME}/.ssh,target=/home/ubuntu/.ssh,readonly",
-        "--device=/dev/bus/usb",
-        "--group-add=dialout"
     ],
-    "settings": {
-        "cmake.configureOnOpen": true
-    },
-    "extensions": [
-        "ms-vscode.cmake-tools",
-        "ms-vscode.cpptools",
-        "ms-vscode.cpptools-extension-pack",
-        "ms-azuretools.vscode-docker",
-        "xaver.clang-format",
-        "espressif.esp-idf-extension"
-    ],
-    "postStartCommand": "echo 'source $IDF_PATH/export.sh' >> ~/.bashrc",
-    "postCreateCommand": ""
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "[c]": {
+                    "editor.defaultFormatter": "ms-vscode.cpptools"
+                },
+                "[cpp]": {
+                    "editor.defaultFormatter": "ms-vscode.cpptools"
+                },
+                "editor.formatOnSave": true,
+                "cmake.configureOnOpen": false
+            },
+            "extensions": [
+                "espressif.esp-idf-extension",
+                "ms-vscode.cpptools-extension-pack"
+            ]
+        }
+    }
 }
