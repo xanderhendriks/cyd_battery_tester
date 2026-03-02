@@ -68,7 +68,7 @@ jobs:
   pyinstaller-mac-build:
     needs: build-application
     name: Build fw uploader - Mac
-    runs-on: macos-13
+    runs-on: macos-15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.5
